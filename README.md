@@ -2,6 +2,8 @@
 
 These notes describe the BLE path implemented by a small iOS label-printing app for a Nelko P21. They are implementation observations from one printer, not an official protocol specification.
 
+This is a vibe-coded project created with AI assistance.
+
 ## Connection: BLE/GATT on iOS
 
 The iOS implementation uses Apple's CoreBluetooth API:
