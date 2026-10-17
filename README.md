@@ -14,6 +14,36 @@ The iOS implementation uses Apple's CoreBluetooth API:
 
 The app sends data in chunks no larger than `maximumWriteValueLength(for:)`. For writes with response it waits for the write callback before sending the next chunk; for writes without response it respects CoreBluetooth's `canSendWriteWithoutResponse` flow control.
 
+The complete `CoreBluetooth` implementation used by the app is in [`P21BluetoothPrinter.swift`](P21BluetoothPrinter.swift). Its channel probe is:
+
+```swift
+private func probeConfigChannel() {
+    guard probeIndex < candidates.count else {
+        fail("Keiner der P21-Druckkanäle hat auf CONFIG? geantwortet.")
+        return
+    }
+
+    let candidate = candidates[probeIndex]
+    writeCharacteristic = candidate.0
+    notifyCharacteristic = candidate.1
+    writeType = candidate.0.properties.contains(.writeWithoutResponse)
+        ? .withoutResponse : .withResponse
+    phase = .config
+
+    send(Data("CONFIG?\r\n".utf8))
+    probeTimeout?.cancel()
+    let timeout = DispatchWorkItem { [weak self] in
+        guard let self, self.isBusy, self.phase == .config else { return }
+        self.probeIndex += 1
+        self.probeConfigChannel()
+    }
+    probeTimeout = timeout
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: timeout)
+}
+```
+
+When the matching notification starts with `CONFIG `, the implementation keeps that write/notify pair, asks for printer status, wakes a paused printer, and submits the label job when ready. See the linked class for the notification handling and MTU-aware write queue.
+
 ## Label payload used by the app
 
 For its single-label job, the app sends this command sequence followed by a 3,408-byte, 1-bit raster:
